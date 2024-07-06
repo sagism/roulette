@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <!-- Attribution -->
+  <!--
+    Created by Sagi Smolarski (https://github.com/sagism)
+    Licensed under the MIT License.
+    Please check out the LICENSE file for more information.
+    -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roulette-Style Random Picker</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        background-color: #f0f0f0;
+        height: 100vh;
+        margin: 0;
+      }
+      .attribution {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        text-align: center;
+        font-size: 12px;
+        color: #999;
+      }
+      #input,
+      #pickButton {
+        margin: 10px;
+        padding: 10px;
+        font-size: 16px;
+      }
+      #input {
+        width: 80%;
+        opacity: 10%;
+        transform: scale(40%);
+        transition: transform 0.5s;
+      }
+      #input:hover {
+        opacity: 100%;
+        transform: scale(100%);
+      }
+      #pickButton {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      #pickButton:hover {
+        background-color: #45a049;
+      }
+      #wheelContainer {
+        position: relative;
+        width: 90vmin;
+        height: 90vmin;
+        max-width: 90%;
+        max-height: 90%;
+      }
+      #wheel {
+        transition: transform 5s cubic-bezier(0.25, 0.1, 0.25, 1);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+      }
+      #selector {
+        position: absolute;
+        top: 50%;
+        right: -30px;
+        width: 0;
+        height: 0;
+        border-top: 15px solid transparent;
+        border-bottom: 15px solid transparent;
+        border-right: 30px solid red;
+        transform: translateY(-50%);
+      }
+      #result {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 32px;
+        font-weight: bold;
+        text-align: center;
+        pointer-events: none; /* Prevent the text from blocking clicks */
+        background-color: rgba(
+          255,
+          255,
+          255,
+          0.8
+        ); /* Semi-transparent background */
+        padding: 10px;
+        border-radius: 10px;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  </head>
+  <body>
+    <div class="attribution">
+      Created by Sagi Smolarski (<a href="https://github.com/sagism"
+        >https://github.com/sagism</a
+      >)
+    </div>
+    <button id="pickButton">Spin the Wheel</button>
+    <div id="wheelContainer">
+      <svg id="wheel" width="100%" height="100%" viewBox="0 0 300 300">
+        <!-- Wheel segments will be added here -->
+      </svg>
+      <div id="selector"></div>
+      <div id="result"></div>
+    </div>
+    <input
+      type="text"
+      id="input"
+      placeholder="Enter items separated by commas"
+      value=""
+    />
+
+    <script>
+      const input = document.getElementById("input");
+      const pickButton = document.getElementById("pickButton");
+      const wheel = document.getElementById("wheel");
+      const result = document.getElementById("result");
+
+      // the click sound. embedded so the file is self contained
+      const base64String =
+        "data:audio/mp3;base64,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Evkf////+v+f+ua2jnGzLwl8DzLVNbVrXt0cmBdEirFR46qLoQEMJLlA2QigAaECDemm3/70uaimorGnOxyscv//aui3o9ftT/9fZ6fVvW16v+53/19ET////0s1NXXRphDKEQxINxAKUKr9GxGDUIIW472VmcHSNIyiQCBk2gKYuYnB8yoEv///vtT9cnt/bt+T/////9LmsknTRksppjTEHh4UEwYUEnEx4q4uLiBlQRI9nKYzizip0HiAcGC4WPEAAKuASsn//19Jysjmo//7YGT8APQ4ecTjCStyAAAP8AAAAQ7F6RNHiNuAAAA/wAAABJzm3W9y3WZWLMrI5UZHL//+va3/fT///svc/+/7////+pHTZ1x59UW5WdymK4QAlc+yRsWwh8E2tlhSlzyGaahH21TA1plYlQS/////////////9enizRbzsVaPNiQ75uSqQpIga3///Kvv////urlt52/qXpO2kpzROkyyV0gYKCg3AhlhSSiCCEjIweD5GZYNojg2964pZJ2k0QsEv//7/1u31pe87p7aVStKt6tar7////VuiU/Lu7nqYisaPsccUU9DhwgPHnml1G41FqDBAueWPFBIqPGjAXFJI0kVB//7UGTtgfK1ecTJoUXyAAAP8AAAAQsR5xDFCTnIAAA/wAAABKYLQXDYE2FgktCBL////////////L89/lw8nmLN3bbJWXfmayyiiM+Vz//5/ytv/193Iz8ZVG5dK1lGFFuvSyOTMl4kSSpNJJCSq7QXybHmvMnZpBaMVCdoJNGyZWwS//////////////6PyztROZAsNIpPzUwgMnnJweu///+//jX+/N+e7qErlmMuxiWMrtG0EcpT0lImYnOco2UOnbTIpD7KyM82ygJLaFD/+1Bk64Hx3HpEAUAscAAAD/AAAAEKxecRJQk5yAAAP8AAAAQFIVgZBL///2t/t++9b7fu3/0X////naej+jKrq0WiTBkwg7j1YRxETGmcCKNIweBFKSBDh0QDquwEUeUCMoEEAS/////X/1/vL1//a1v/////+3aq2YpXLaVDJQ7ijGFBo4inYjGHFY7jUO51hbo6iDDw6AiOExRBYqoEv///9l13etE3tSnddKI//////739+e/RzEN3UoY5o4p5lx12IE2JECg1mEzmEg8U//uARPiP8qh5wwFBTfJOTzhgKAd+SnHrDAUFN8FIPOGAoKb5GuKAs4wJBg1UH8ZF46KS7gl////XXv/b0371///6///+6b3ZVqllY6oRHMJnHHnEyMom7B0w8XFjiw5TDAIwcFTB0HFHsJHEDGAEVHrVBL//////////////p/8si+RwpHjTUYnmZzM2Xzn///9fv/+HrbzvnlylcI5BXGX+n66CrWLXBdM+F1rsVomjiPAsqUFVkJmZvnBJpEkTAZNoozgl///////////////62jfX8gLZXCeNvn4OSg///5/7//W+FZGNT3w3a+MORspOYipSp9O6QeaZGooaJJI2lbhS8DIwfJXLI0hURBIhkKV0wJf///////////5+//+6RprWfs4jeUqYA3bEQBfX/////9z1/l4zd7K4f3uNw8KhcDkXNiAgZi5ONZFebLFihdk3JzDKAcGlkGxCpKjWCazIJf//////////+zBk+I/x4npEAUAscAAAD/AAAAEHPekQBQCvwAAAP8AAAAT/////7/8jDaTpGXnnyUkUpdsAikRF///D4f/PDc9wjjPpnsIs8EoVXRva62YVQpt6VKokJ1SRtVo0gMNoUUyYQjaIG1UOu1Y2TK2qBL///b39dPrTTTZaHvSqv76G/ayf///X3W3u6HMZqjGojuefPG7GiUJRAwf/+zBk+Q/yB3rEAUA8cAAAD/AAAAEHqekQBQCxwAAAP8AAAATJEBOPCYwsOy4ecRG4tYRyo+MEyoUFxUSRgXkywPRMPCxWgS/////////////8eP7mfAmaPzSpOXhiMidnAv7g1/5///16r+vVwur6soZUm6yFQW2GTbu4QtxFzLOwXi2TsIC5XDbarQl1Coj064aUVHiugl//////+4BE9Y/ylXpDAUFN8k/POGAoKb5KCecMBQU3yU49YYCgpvj///////+f/z7/fIVk2SNM1X5BMSdJZZ5HZ/y/f7//yOZfrL/7Uc1XdZvG2rgQPk2uyX7TJMkZppBNAwEh8UUXLl0DUHxmlILLk6o8GkACCX////////////f8vLlPd+lciKHThupmUb4JhiOV////72vcf/LNu67VTuFdTZTm1TUFG2loVFUshSSJqJGEoKlC5O5p4dJUpoisQyGh8B10A2RMvgS////7e2+Zfuevbq3Vt0NNMeqX2/av//+mnfnT0qWU5TI3qQHB90OkyZVTDxIGXJEkLkTiw6PGDUwwdHAkGynHFAiG41UcOEgLHBERQCX/////////////+XctyPs/lbJHsy4faXn1zcs////91/6q++lvHYbNv0p8r45fNecZQzJUTBI3ShIgRLz6MhTRFzRIdTGRM2WaAwNh8gZJCzoAl//////7gET2j/JyecMBQDvyUO9YYCgpvgp55wwFBTfJU71hgKCm+P///////8vyq2H8hM6S5Znm5xO8jRa3EfUuW//+//5V+cJ+1K8ZPmv/JPdlCoUexCw2XIZlGVMQHIpFXTFJZMcPH426poBOQzRSOIFmRdMEv//9P0/n02XntZzqpHmW26TnU5NO6X////a/p7zrnupJquaajmK2JEfRShUdGg8aOisWqXHhQUMFZUbERacVUdExo+OB5o+GyJYRS88Ev////////////p/5/y3/tyupgcz/PrPvSfPL87/l/y/Ovu193fWa1HcxmtjJvU14vQllVZMNmUjX1gugmKtQEKUUU6E75tjaaIQka4lgBAl/////////////+vl+qlyKQadR+8IJRRmsk3fy//117v/+HyHl5bGtrtTjc/OLManhtuCBeaLYIdnRXJLUuvbZOTh4iExYoFmlaDCEptpYCX////////////////uARPcP8m16QwFAO/BSz1hgKCm+CnXpDAUFN8E3vOGAoB35+qt5Cq8lbOVv3+5jpod5bujlbf7r/bp+1n3tkJo8OQQWRyQYGiizEYcrkVLJkDlka4lQKGl03D6plZQgEsiixI8QiVOI9awS////pa///sdp206vXVuy96df6/b/qqPZLsx6Me5yqP2kpil0EQuRY840UDIjkCZrOKxsNBEF43ZSwnErFonQSjh8JB88MDxAMDBAoioEv/////////////+yr6N9cmmE4QOhRZiqLIk7GbUlz////7nvLrwyry5xle78VQbd9ZKKz4Teu1KCBaZClEVxecaI5IEh4nNoHKClRySYoGDR7FAl/////////////1z8vR/Oq3+fx5vr85X/z3////cox918956gvPzShjRC20riC1ZtsLKe14KmZEqOK8Dxsq8lZcSmw6IFBQek2wgJkQ0ZiCX//////////////39z/3r/+4BE+o/yf3nDAUFN8lAPSGAoKb4KXecMBQk5wTW9YYCgHfg0eWfBucczpf8+pf/5f/Plx+5eVOp9epTjtNtx8FZG2ctBqb7QsSJWj6iaqb0U3k5CbiammiSTaJ05H0ag6lgJf//////////////5ZD+5UrmX0ynnxf8PWl///37+ev4w9363NnO5Qarx1pBDGHIlainp1WDbdFCIobbZJjZETuJidxL0Cg6XE8jDWLzqBL///Rbdv7/OZv1dK9GtmPROc1k1bt////9FUenuZmzFcauehAsPmI5qqcYLiY+SCEcJlznKikUDUbCIhQdF4nB8UKFRUYGzwTGhoiCOMlXBL//////////////vF9M/l1KDbqj9+EU6oqef//85cvfzzr/MhVQvYTh4wc15MdjzTtTvZSg0RoyQnQGB0SSZPRI3iy8GmWxS4Lw0K4aJwwgmCX//////////////M+0e3w79OfKxBrR5cv/7cET+j/KdecMBQU3wUA9YYCgpvgnp6wwFBTfBOb0hgKCm+DJaPymZ///v7mVP5cPeX5J61ty+XhpKdrtotdLVFFKZXPIYW/so4mWSBCNk6JJYMreYbY1RjiVYEv////////////8/6v/x8m8h/KHJUtf/j1Nf6///+eq//jklI5c4rrrTtSUpspmcivB0evaqrR4upWRwTheZ55lcwqq0muKECw2AFlgPn8oEv//+9vX/7Vfo1K+2//X////9rPdz0RNT5D0jj3PD52QedxIUDg5RZBhynYHCIfIPHjQ44dCIoKjBMYEhzAl///r/T//+n9OlPpX/////6fTSqZ556GmnsVsrIaeYVZT5W04s5yuLTx8mqFDTyY2LExeUJiUOkQRHgHhcXwVqBL////////////7/1vz/+4BE6A/ygnrDAUA78FGvWGAoKb4KHekMBQU3wT89YYCgpvjn/ZSrMXzP4IJPNlnPl////933/Gv9hWSLVGUJ5sZSa+RoyruudDHk9KpojqGz9IHE4XbT1oqJXlREjgPKtEZdceCX//////////////LpeiQsvMkWcgm8lkRsgGe/v/D//5KvW76v/5fu89ydUWsirAvbe4ks01SFAgOaaJCBHZAseQNoxAfPEQCmFLfBXA8TI2BGow8Ev/////////////+XIf/kGfgrOvo1Ns+pxwwfeX/96////nLPlzhewaSSXm+EI22gRc1Gapn5FghR62QW9pUgVIyW24NSYJJZZIoGVCQTH04gl////2v6XamvV1V7vzdZqOlUWb01sn+3/f9LbI1DDZiGnNdz1IKYpxhYo0mJyJAfFTmjx43YwUmlRINGpQgMi+OBhhocPi00WueTJjU6NQS////+n/enr+mv5r9////////7QGTrD/HvesQBQCxwAAAP8AAAAQgV4xAFAO/IAAA/wAAABP/6Nue7szrVFnvmzGLo7Hlx8WkTXJGDhWVc8bDg6RGw2EQiPnoaNyBEFo3PJAl////66d03/b/t+v//X////pe/vSSyKRKCRlMVFZTqqCLiyDysQ6IHRIQFhEVHjxZxEggCCAHOMAcVHugQONcEv///+1PV/n1fT1T1zt+uvu22+uv//6XzHWYey2PR1NUw41WP//uARPSP8nt5wwFBTfJUr1hgKCm+Ci3rDAUFN8E9POGAoB35NRTDjSI1MPRQeExsrD4uMFgVLDwuEx5YkcPDJcLjZxSNVB+EaGh5UEv///////////////V6j3n156HYyoRTffF/5////n7X9V4lmlqe86ZOYxzcgUlzDwS4AqREnPRImEKJoDwuBBhwZM0K4KNWCJmoAWh4Jf///////////1//v/vf0JTTPeXzL1fVtmvRVpVP///bvU552VaGKgoQeioQMhECyMLJJa/uP1b4rezlT6TSytYuamOFCVjS9EvZWIi8pwEv////TT95+7t7menfSyt3XNd962////9GMMSxznKiOq3NOIWMcoOmEiZpp5EcONODRAaCgwKHjY4wThUXDBQUHjpcdCMqNxoGFMHCygS//////////////lkepT8642TkV/msra1/n9f////+vkY379bdvjfqO2ls7VQNPEbWpzsjQr7/+zBk9o/x93rEAUA78AAAD/AAAAEIBekQBQCvwAAAP8AAAASZKRSiGQq2UgeRFTTJxILzawjXIErggFaOAJf////////////5/nMjzz56o8WM6ZZcgnO/e7T//////WeeV4VvzNy3XSUbkhV3I2QL6UlchJl3Odo8XRQRJkEYEagaHy1NkxcuiJCxoMlnSBL/////////////+/3/+4BE8w/yZHpDAUA78E0vKGAoJr5J9esMBQmZwTS9IYCgHfhZvKs7FmH5t23+cOLP/r+v+9f1/m1Pdu51C8jCd0nGdwNq6i5E0ij4JY+JU6rCUWpNKEIiVPr6kiWMpKT5EKFiEo7QS////+ulmpVvufcy+jUX3pWvf//t933aY6o1HRz2HUNPYqRYqYajnmnTR9B80RBu5M8mQcZEUcJlVCIkSFYtPEUamg/Go8UGo3HzqgS///////////////LO9/AU1lJJScZHjKRPFEXRcu///r/X/y4VL3leVygqp4YzW3bllV2TdpoGtihdPU4M1QrLFw2prNkSJtFtPIEi4hFaJkeCX//////////////6S/lsuyqlWoUaN6zQXD/96/L/fy++5/7e5GcKlewhcaYrJsMto5GoKta+bWtm3zNPVZmZimkhZyTTLakw6naopSMpYCX////////////6fbr/surq63ZtU6Vdk//7cET8D/KDesMBQU3wUW9YYCgpvgn56wwFBTfBLz1hgKAeOFt1Xv///r//nO6JfY6GPD0IWhgUVOYKKkcWFpoVo1FUGx6BWCS8mlEL3NxFL2SmBsiLroTyUgS///99E+tOxrIu5tFqtlZEXTn7qx7fX///p8+i6dzjTnQyPsUV5yqWMNNHHOOOUwoJjhwWg/YauQJA+FQwPFwsTCEcDTBIIg0NoI43IDQRCUQEv////////////86/Lv/X+tRZTZnbEOdcX/4///9+/t1/7lu34tece2teScvjoLYftVNQaUVkjTVMyQGzlJLIUkVo0LjPEkWiRCtElOvkCX/////f1Ot7roqp63qairRW3b0dLV///5/c3Td0u5ko5hppM0cVJpA55EeIC0THGFQwgpJDg4cIorIkyAv/+4BE54/ykXpDAUFN8k+PWGAoKb4JzesMBQk5wUg84YCgHfmEkaityh40cCYChUOkxMNEwBL/////////////lr/spHF58zLBa7JzxuZop+YAf/13//6+52x63JZNodez7wvMeng8/gYGSXMIrHsW1JJkyAowLB0SZoIAMY6bEAIJdIpkEv//////////////1XTZ5fJLPEOiueIzfUveRRei////7/eVeXcN9T+Qykkckb8SfS+aX/mbgycQIi8YklsSMxitRGGiYlURX1DB444nImZ1BL////av5imN1VLUVT2ze+rTO83RN1r////TSlnTS5rJRDFqWKFihYw0cHDReRHhoYPkhwVR8eHzx0dInjw1EkIDAhKzRgwkTCcbMNAqSNLgl//////////////57O9nJbrSfFI3m+UUrLLzpz//y9z33Da33Crv5LZ1/N9rSWdLdzW+socfbMcpUlpijD4nMZeRAyNE8P/7gETrD/J3esMBQU3wTu84YCgHfkoB5wwFBNfJQr1hgKCm+G1ninS4LGp0GSIEv//27L6827vY6vsj6bu63tTduvWvaunb/t+vmSllkTz0Z1HkOmrHTSzDUdLXHyBg4xIxDihYS45IsVFYnNcihEFxo+NC8ajhMFwlBIOCgS/////////////L/PfUuLKmryLH2WmWK9uMv/zz///z/fe3UayfZnub+ogua8tk1h9JqUOnkpsI0yYRJpMSpGoywgtJiyKZAmhKClALmiZDFQS//////////////+v/FIu251rOE3TI/MgcC0zy8v//+/fn954xne5cKSbJLll69B5ZGKiB6KFVbLMY3FgkKQQNC6qBghgOvI02sQFSyounoJf////////////p/+X066uy+7va2jURzOvdK3rtRHp1///bVK0Mmc5MxCrU4YGEIVxajnYhMnFDb3tJXTBwkOoMXieYE66zQjHUaIkF//uARPAP8oN6wwFAO/BQr0hgKCm+CenpDAUA78lFPWGAoKb4Q2cJFFQS////fdv3p1pornPnMhuqbKtP9l3Ruzz63//qnmWoY7uZV1NOHiHOc5xsNihguFI0cwfHypMjLGk0HxsI5p46YFBaNYVHSRMaFwehINw8ykEv///p61vSh6OiHez7vWdbdaPf9Gon7////qjm2dctnHnKpxp1WZxqIw6ymkEGg2HTpBkGwnNIiYwxAeAuFhMoOjcRgXQ0IgliUKhuODRMFQS///////////////Xs/h6CNEjwUTDlsqrt2S2Cs//////3O9lUJVC8qE4zirisVP/sIpeUJwojPJTSN6ihFkUo1SBENn4+cDLzTVnSwUBoqwCX////2+73U1bpM7mX2RJyKvvpqqmdK0//9dNDFPe/VnHpUqrTlY1iB2NCA2KjguPMKuSQ+NR8sQInFRSPS4iDqgvEkKGiW4LhcBQbjYbkijb/+4BE84/yg3rDAUFN8FJvSGAoSc5KEecMBQDvyUA84YCgHfkAAl////////////////r2X9inV/FWoJAl///1//RK9rJfbNd/V6fXvXNP9P///3erbUMOORHRjFMQvnsPONlOkSyic0eUfKiWwrKug6OD5pYSCQ4SLBKeOjojAIFSmA9Cw0EsfELAAAAAFb/////5vv/////////+T5UpU1lZD3ypZKkRHLaVyybkIUWUqEMCQiEOwAKBAS////7Xx/+9fM/fUTHN/zHH3XPfTf/8R8f///D/1sm0ppNtIy+nZVZlH5RRtljSqoQIWTVDkgsUUoUJDm3cdCB0wdahsRxDFXBuHZ7gl//////////////y/+X0Nvsuax5pDyDstef/v+f//3/e5GKUKvw8IwnOeQSYiqq9pdHDtMMLJncLmWZopEWLkZQ2ooJ3zLQXJx8TNiCiQMooAl////////////8///sv5ZHP0//7cET2B/KLesMBQU3wUU9IYCgHfgMABSUFAAAROD0hgKAd+WyLqYbez+693//3//q/724QulcVuXqldf7uEEewxukTJpNUr2CXsIpFiwIGyEw8VWXkVKwMgkUPF2xsL7be1QS///9NvTt/0p0+n/v///9fn3b+tjIRBxSHRkRjBwapSh4YYRQDEaIAisNAyHUIixGYooJnHBIDgooIGD5wS////69+T/Wv9mp/t////zal/7PcYxyXQeNoxTrFB4eczlI7CpGQUFc8PDwspxkUERQcLB8FBwHD4oJVBL///9G+i+ulzW3/W6s72VfrNtZP72f/f+/rPd0Q3ox7OhE6xAcH8cInSA0LDVyhNHlCw8NTh4wfGw8VH0GwkEjyJITjxQIRMD8bgTFYyVXBL////T/b/n0fRun/+3BE/AfxinnFwaAUck0vWGAoCI4KOesMBQU3wUQ9oYCgpvitX61c91VqrNbc9E//X///fU1n6oY8xizHNNHzxhy7kyxc4HyETihhIRCTHi4IhxAnMIBCTHDx8SYaAgTEJw1CwEgiF0ABL///snT/RXSvrVk6/Uxtt7ohj16nL/ayf/+lbezMcbNOmErMQEDGlx8Y6CoOkLkQ1PPc0mIzyVxgIs0aiu5CKhCFKPjmESRE4cIChcnC9KEJdgS/////6K/nv3TatGNfs7ae1u3+tf///uiTqJMWlDJpimKpxAfEkdGjjhUsx7mITONPKjI2OcoYL1caC0mUEsaxORCYSx4LDpapBL/////////////LLz19ucsUEj1KRqfkz+fHR+Ku//zr+x//hWSzxvXXsql3VFeKk4R1//swZPWP8ex6RAFALHAAAA/wAAABB3nnEAUAscgAAD/AAAAEeJV5mRJJC9RZRZzBs4H1TzYOMIQq2d7jiipCWG0fRRoAAAAArf///////////////7HruBsCtqPaDIrOB9guCX//+/M/zNF16sutGVXVGpRXt17b1M/3/6f/p7Op8yx5djTjp6mjp5xpoydGrmDQiXcfHx6JAoF7//uARPSP8oJ6QwFAO/JRDyhgKAduSlnrDAUBT8EnPOGAoB34MaIgyKSQwQJjpYbmDg8PA0oPDo2IuCX////r+dt+u12c/3uz1/e9m118z/r/prmvZbz3PPckexprEMkSVyo5HjB0R2YbjVx88bFTxqVEU4iMkhFHRQOkR4RiQwQYFpolFBkalQS///+n/VP/7/t7p99f/X////rs28+jzOdS7CBEK55xJxIdFxQrAgwQmOJEAQVGqHxcwFFkINDodISLiBA+RGCX////r9//T6O/T/Tevaz//////pMuzIe1nqYxhq3GppJznYcMjV3JuOljhGKGigmhIcODi43IiQonKGiocID44OCFBL///9L/t9Upfd9eiU90RbXnI6a9v+2v//3aqmLSSOcMlJjI3nI5pZyOSuREgsiuNBuYTFSIoMhseSCSKw0NGKkQsEIsEonE4boTEQi1GJiQS///////////////XrRqU+D/+3BE+g9ylHpDAUFN8B9gKPQ0AAAJ2esMBQDvwTm84YCgHfkNyMgdzRAZpyzSqHPX/3+v3/+vG6/9rbGr8tkpFfxTm6CeRTJ0RAw9tfziugUQGDy5tolRlSkCRJCUMk5VGNVNgl////////////+v9qSrZkiLmpdshs7o8SzgS5NT6Mv//4v3X9S95L/JUpDwl1Y4ynlbHFJKGFULbaNd1s500J9GgJl1lRSmXFAIglCY++EUbGoIAl//////////////fzv/7r04J/zpyR9cPP1vX/r7vyeZWe/Hdmtd55VHI5KooVG05Nv7FpTghQtkaOYJx8F3vZOhqR6hMKVlKUJIhVPWlQS//////////////qXKuZMy1pN3/5CUZedPBP89///7/8va/nUM8fKd9FNbILcqoiSb//swZP0P8ft5xAFAK/IAAA/wAAABCGXnEAUA78gAAD/AAAAEkjnS63RIpSXmyqbSVSYkQpFGE11tLDCBN5gLTWOOwEv/////////////mXz+WRc7nXsU2CXQSrKHL53f/898v4b/l5kNllx2N3c4pXicq1abcVj9JrELZdSkKDEXkRKrlJE7zECRGwxocEVGWEajY4Ev//////////uARPeP8oR5wwFAU/BRrwhgKCm+SoHpDAUFN8E4vWGAoKb4////+uqrrnXHXlTuFmeRdZOX9/Of//+emd2erXWZ6mzMFIdp219ZamvOnlsutrHFd9LTk702ZedWLrmJwqcXn4murlh7CUjCy98Ev//////////////+XV7l5rVb9EQYZ+eSTLaf1//h//+o5OHrPms/5HKjU9zvVTQxVi96MlnFQhcoQxQCdkjhIukZXXLCdkw2ouscKwixBQS///+ltus1FXZjffR6dKn0RK2rMp6b3//b/1tU9ptXSjnmkFmSR1jx4qPGjxIiSHRLKECxzjShjjc4RCpESQGkTjiSkRKVCIRjMNlgmHUBL///9XWd9j/vvp1PstXNuYimOdzjK6On////V+u6HPRTrvU9D2PY5VckYJQ8rjpcTmDYmp5koYpgyPCgRhsIsSwwK3Hx9rFiY2IGUAl////////////z//+p/6m/ERD/+4BE+Y/yhHrDAUFN8FHPOGAoKb5KOekMBQWXwT49IYCgpvgh8clCj7+csdf///3/s+Nf3cf+X/vbxso9UxcdFkz1DU0iSKiKJ2dNNJE9xiIWpQgiBGBIWKJBI8Ui+AAW////////////////9320ftapagS////////////+uv0b0sv+q/3uctKOXIyPta3t2k//+3Vund6V1HrFKWYWO4+PKQNMJu2S28swmgJlFFE8KKlCbtzOnNidH0EmMMDKCDwS///9tv0dUZdEqc5/2W539b317W//87s82qo6m3lziqupNTCBxzEhJPLR0YLGMkmPDdBoeUEQfBYYWDh+JJAOHypIXhOeVGw+OiUNXBL///////////////svq8vmVUa6Uqf0TKdNVXv9F1///9lla92c7lFMdbMHOaDMGOxwrmOVIsu5VE4pE2SYwhWIhUu4Uh6RHILvImkSpEQkpteQJf/////////////7YET8D3J6esMBQDvwTK84YCgHfkmx6wwFBNfAVABkoLAAAv+fz3l15EdlZEsLpklbOMHzjr11+X/kf/1//lZsoxjsvs0q7VPUzGNTQ7GczOahQFJMaaYMLZMqdewdQDxoqwgSwmAKa0yMmqoEv///f+r23VDK1+nVuiKYy2e5jNQrelP19v/+v9jnnTXIXaeeOHqw8VG0mw+SJkzibiWRFRUqTF5pqiWJCEhuI4uFYeNyhwlEREHWEJYHwpJGgl/////////////30/fz9NXNFMpaRNVMWYDRcWqGt///PL/1/Hd+Vt3ssryjObOyk9V2TOtEb56MI2C4likiNWXISW0Ahv/7gETtD/J2esMBRU5wTQ9YYCgHjgpd6wwFCTnBS71hgKCm+E8ZOuScuUQnujWVI1Wpgl//////////////53nyv7KckjKavW9sR+aPl+n7/+Xnvd/ysj/CquV3HyZlvkcyakdVWR2y9PXMknaQmGUL1uSlJOFZZUYIS0j5HBGjiiiCX/////////////cXc/lylsGdSWDqTfnG8kXEvl///v///KyHuMfnQtp3OWTipKsgtLElqWFVrJL5zpC2mWYNFjhSRYdbG4qYuuPo1jWJqMbVBL//9P/99EvRtqt7K616KdsqbHel6ouf//9mr6KjmT0MPY0mXMZDzz0OLKchQxCjHjRhuNTyQqEaSKFgLCNLoNRgPE4P0IMKUB6D0FzCEJgkXQAAAAAt////////////////rRTK13yhdaYYecIhZqQS//////////////5/zjXpHXg2ChGgAjbQEZoz5d5l/3//nq98q7rl//uARPCP8pF6wwFAO/BUD1hgKCm+CgHpDAUFN8FEPWGAoKb4Lf4ynVpSnr91WKa7Ua1TVrR4K+VFWjhRsypQ0hXQUTIkmDpfrGgQWICdiGK3///////////////+PsSmLTTYBefUVe2BwqkFVYAAAAALf///////////////psxe9rjxIe8DOF0AgITQORMbwAAAABW////////////////6Oa1+hraHIaUCUAAJIz///6ft//61Zf+n////6//6PElRWMbocVSpmZZSnEB5Gs7OhkKQ4YEw4IgYVINHGERIwRFZYAGlzP////0///9f7fvQ3///////myoz1KxyHdCmYxxx1lKYaKmVzOgeExVB5jDB5HDwiOIBmUSQaQeqTEFNRTMuMTAwqqqqqqqqZ///////////////////VUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+2BE8Q/yjXlDAUA78h8gGQQsAAAKdecMBQU3yHOAo8DQAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVX/+1BE8IdxGADHQWAABBtgGRg0AACHHecQo4Cx2Ou8ohRwFflVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQZOWP8H0ARAAAAAgAAA/wAAABAAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=";
+
+      // Create an audio element
+      const audio = new Audio(base64String);
+
+      function getQueryParameter(param) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(param);
+      }
+
+      function playClickSound() {
+        audio.play();
+        audio.currentTime = 0;
+      }
+
+      // Play the sound for 5 seconds with a decaying interval
+      let initial_interval = 30;
+      let interval = initial_interval; // starting interval in milliseconds
+      let decayRate = 1.1; // decay rate for the interval
+      let duration = 5000; // total duration in milliseconds
+      let elapsed = 0; // elapsed time in milliseconds
+
+      function startDecayingInterval() {
+        let intervalID = setInterval(() => {
+          if (elapsed < duration * 0.75) {
+            playClickSound();
+            elapsed += interval;
+            clearInterval(intervalID);
+            interval *= decayRate; // increase the interval
+            startDecayingInterval(); // call the function again with the new interval
+          } else {
+            clearInterval(intervalID);
+            elapsed = 0;
+            interval = initial_interval;
+          }
+        }, interval);
+      }
+
+      function createWheel(items) {
+        const colors = [
+          "#FF6B6B",
+          "#4ECDC4",
+          "#45B7D1",
+          "#FFA07A",
+          "#98D8C8",
+          "#F7DC6F",
+          "#BB8FCE",
+          "#82E0AA",
+        ];
+        const totalItems = items.length;
+        const anglePerItem = 360 / totalItems;
+        let rotationAngle = 0;
+
+        wheel.innerHTML = ""; // Clear previous wheel
+
+        items.forEach((item, index) => {
+          const color = colors[index % colors.length];
+          const segment = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "path"
+          );
+          const textElement = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+
+          // Create wheel segment
+          const startAngle = rotationAngle * (Math.PI / 180);
+          const endAngle = (rotationAngle + anglePerItem) * (Math.PI / 180);
+          const x1 = 150 + 145 * Math.cos(startAngle);
+          const y1 = 150 + 145 * Math.sin(startAngle);
+          const x2 = 150 + 145 * Math.cos(endAngle);
+          const y2 = 150 + 145 * Math.sin(endAngle);
+          const largeArcFlag = anglePerItem > 180 ? 1 : 0;
+          const pathData = `M150,150 L${x1},${y1} A145,145 0 ${largeArcFlag},1 ${x2},${y2} Z`;
+
+          segment.setAttribute("d", pathData);
+          segment.setAttribute("fill", color);
+          wheel.appendChild(segment);
+
+          // Add text
+          const textAngle = rotationAngle + anglePerItem / 2;
+          const textX = 150 + 70 * Math.cos(textAngle * (Math.PI / 180));
+          const textY = 150 + 70 * Math.sin(textAngle * (Math.PI / 180));
+          textElement.setAttribute("x", textX);
+          textElement.setAttribute("y", textY);
+          textElement.setAttribute("text-anchor", "right");
+          textElement.setAttribute("dominant-baseline", "middle");
+          textElement.setAttribute("fill", "black");
+          textElement.setAttribute("font-size", "12");
+          textElement.setAttribute(
+            "transform",
+            `rotate(${textAngle}, ${textX}, ${textY})`
+          );
+          textElement.textContent = item;
+          wheel.appendChild(textElement);
+
+          rotationAngle += anglePerItem;
+        });
+      }
+
+      function distanceFromAngle(angle, sliceAngle) {
+        const before = angle % sliceAngle;
+        const after = sliceAngle - before;
+        return Math.min(before, after);
+      }
+
+      function spinWheel(items) {
+        const totalSpins = 5; // Number of full rotations
+        var extraAngle = Math.random() * 360; // Random extra angle
+        const anglePerItem = 360 / items.length;
+
+        // Avoid hitting too close to a segment boundary
+        const minAngleFromBoundary = 3;
+        var angleFromBoundary = distanceFromAngle(extraAngle, anglePerItem);
+        while (angleFromBoundary < minAngleFromBoundary) {
+          var delta = 3 - Math.random() * 6;
+          extraAngle += delta;
+          extraAngle = extraAngle % 360;
+          angleFromBoundary = distanceFromAngle(extraAngle, anglePerItem);
+        }
+
+        const totalAngle = totalSpins * 360 + extraAngle;
+        wheel.style.transition =
+          "transform 5s cubic-bezier(0.25, 0.1, 0.25, 1)";
+        wheel.style.transform = `rotate(${-totalAngle}deg)`;
+
+        // const spinDuration = 5000; // Spin duration in milliseconds
+        // const clickInterval = spinDuration / (totalSpins * items.length); // Interval between clicks
+        // let clickTimer = setInterval(playClickSound, clickInterval);
+        startDecayingInterval();
+
+        setTimeout(() => {
+          // Calculate which item is at the right when the wheel stops
+          const stoppedAngle = ((totalAngle % 360) + 360) % 360; // Ensure the angle is positive
+          const selectedIndex = Math.floor(stoppedAngle / anglePerItem);
+          const selectedItem = items[selectedIndex];
+
+          result.textContent = `${selectedItem}: You won!!!`;
+
+          // Celebration animation
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        }, 5000); // Show result after 5 seconds (when wheel stops)
+      }
+
+      pickButton.addEventListener("click", () => {
+        const items = input.value
+          .split(",")
+          .map((item) => item.trim())
+          .filter((item) => item !== "");
+        if (items.length < 2) {
+          result.textContent = "Please enter at least two items";
+          return;
+        }
+
+        // Reset wheel and result
+        wheel.style.transition = "none";
+        wheel.style.transform = "rotate(0deg)";
+        result.textContent = "";
+
+        setTimeout(() => {
+          createWheel(items);
+          setTimeout(() => {
+            spinWheel(items);
+          }, 0); // Allow time for reset to apply
+        }, 100); // Small delay to ensure reset applies
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // You can specify the items a url-based parameter is called "items"
+        // e.g. file://~/Documents/roulette.html?items=team%201,team%202,team%203,team%204
+        // You can still edit the items in the input field after loading
+        let items = getQueryParameter("items");
+        if (items) {
+          items = items
+            .split(",")
+            .map((item) => item.trim())
+            .filter((item) => item !== "");
+          input.value = items.join(", ");
+        } else {
+          // default items
+          items = [
+            "team 1",
+            "team 2",
+            "team 3",
+            "team 4",
+            "team 5",
+            "team 6",
+            "team 7",
+            "team 8",
+            "team 9",
+            "team 10",
+            "team 11",
+            "team 12",
+            "team 13",
+          ];
+          input.value = items.join(", ");
+        }
+        createWheel(items);
+      });
+    </script>
+  </body>
+</html>
