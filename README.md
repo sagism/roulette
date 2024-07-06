@@ -1,6 +1,9 @@
 # Roulette
 A self-contained web-based roulette to choose randomly between options
 
+<img src="roulette.png" alt="Project Screenshot" width="500"/>
+
+
 # Running
 Just download the roulette.html file and open it in a browser (e.g. by double-clicking on it in your file explorer)
 
