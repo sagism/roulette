@@ -209,8 +209,8 @@
 
           // Add text
           const textAngle = rotationAngle + anglePerItem / 2;
-          const textX = 150 + 70 * Math.cos(textAngle * (Math.PI / 180));
-          const textY = 150 + 70 * Math.sin(textAngle * (Math.PI / 180));
+          let textX = 150 + 90 * Math.cos(textAngle * (Math.PI / 180));
+          const textY = 150 + 90 * Math.sin(textAngle * (Math.PI / 180));
           textElement.setAttribute("x", textX);
           textElement.setAttribute("y", textY);
           textElement.setAttribute("text-anchor", "right");
@@ -224,6 +224,14 @@
           textElement.textContent = item;
           wheel.appendChild(textElement);
 
+          // Calculate text width
+          const textWidth = textElement.getBBox().width;
+          textX = textX - textWidth / 2;
+          if (textWidth > 90) {
+            textX = Math.max(0, textX - 10);
+          }
+          console.log(item, textWidth, textX);
+          textElement.setAttribute("x", textX);
           rotationAngle += anglePerItem;
         });
       }
